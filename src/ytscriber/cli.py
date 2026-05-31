@@ -19,6 +19,7 @@ from ytscriber.auth import (
     resolve_api_key,
     resolve_key_source,
     set_stored_key,
+    validate_api_key,
 )
 from ytscriber.batch import download_all_transcripts, download_from_csv, find_video_csv_files
 from ytscriber.config import (
@@ -658,8 +659,14 @@ def handle_auth(args: argparse.Namespace) -> int:
         if not api_key:
             logger.error("No key entered.")
             return 1
+        print("Validating key with OpenRouter...")
+        is_valid, message = validate_api_key(api_key)
+        if not is_valid:
+            logger.error(f"Key not saved: {message}.")
+            logger.error("Double-check your key at https://openrouter.ai/keys")
+            return 1
         if set_stored_key(api_key):
-            print(f"Saved API key to keychain ({mask_key(api_key)}).")
+            print(f"Validated and saved API key to keychain ({mask_key(api_key)}).")
             return 0
         logger.error("Could not save key to the OS keychain.")
         return 1

@@ -2,6 +2,15 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.1] - 2026-05-31
+
+### Added
+- **Login-time key validation**: `ytscriber auth login` now verifies the key against OpenRouter before saving it, so an invalid key is rejected immediately instead of failing deep in a download run.
+
+### Changed
+- Background summary worker now logs when a summary starts, giving visibility during the rate-limit window.
+- Clearer summary error messages: a `404` now reports the unresolved model name, and `401/403` reports an unauthorized key, instead of a bare HTTP status.
+
 ## [1.5.0] - 2026-05-31
 
 ### Added

@@ -45,3 +45,34 @@ def test_mask_key():
     assert auth.mask_key("sk-or-1234567890") == "sk-or...7890"
     assert auth.mask_key("short") == "*****"
     assert auth.mask_key("") == ""
+
+
+class _FakeResponse:
+    def __init__(self, status_code):
+        self.status_code = status_code
+
+
+def test_validate_api_key_valid(monkeypatch):
+    monkeypatch.setattr("requests.get", lambda *a, **k: _FakeResponse(200))
+    ok, msg = auth.validate_api_key("good-key")
+    assert ok is True
+    assert msg == "valid"
+
+
+def test_validate_api_key_unauthorized(monkeypatch):
+    monkeypatch.setattr("requests.get", lambda *a, **k: _FakeResponse(401))
+    ok, msg = auth.validate_api_key("bad-key")
+    assert ok is False
+    assert "invalid" in msg
+
+
+def test_validate_api_key_network_error(monkeypatch):
+    import requests
+
+    def boom(*a, **k):
+        raise requests.RequestException("no network")
+
+    monkeypatch.setattr("requests.get", boom)
+    ok, msg = auth.validate_api_key("any-key")
+    assert ok is False
+    assert "could not reach" in msg

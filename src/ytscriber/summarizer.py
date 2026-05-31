@@ -370,10 +370,17 @@ def process_transcript(
                     success=False,
                     error_message=f"retry failed: {retry_error}",
                 )
+        status = e.response.status_code
+        if status == 404:
+            detail = f"model '{model}' not found or not available to your key (HTTP 404)"
+        elif status in (401, 403):
+            detail = f"unauthorized: check your API key (HTTP {status})"
+        else:
+            detail = f"API error: HTTP {status}"
         return SummarizeResult(
             video_id=video_id,
             success=False,
-            error_message=f"API error: {e.response.status_code}",
+            error_message=detail,
         )
     except Exception as e:
         return SummarizeResult(

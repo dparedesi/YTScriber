@@ -97,6 +97,7 @@ def download_from_csv(
     def summarize_in_background(output_path: Path, row: dict) -> None:
         """Summarize a downloaded transcript; never raises."""
         try:
+            logger.info(f"  → Summarizing {output_path.stem} in background...")
             res = process_transcript(
                 file_path=output_path,
                 api_key=api_key,  # type: ignore[arg-type]

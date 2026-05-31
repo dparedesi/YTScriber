@@ -25,7 +25,36 @@ ENV_VAR = "OPENROUTER_API_KEY"
 KEYRING_SERVICE = "ytscriber"
 KEYRING_USERNAME = "openrouter"
 
+# Lightweight endpoint that returns key info (rate limits, usage). Returns 200
+# for a valid key and 401 for an invalid one, without needing a model.
+VALIDATE_URL = "https://openrouter.ai/api/v1/key"
+
 _dotenv_loaded = False
+
+
+def validate_api_key(api_key: str, timeout: float = 10.0) -> tuple[bool, str]:
+    """Check whether an OpenRouter API key is valid.
+
+    Returns a ``(is_valid, message)`` tuple. Network failures are treated as
+    inconclusive (``is_valid`` False) with an explanatory message so callers
+    can decide whether to proceed.
+    """
+    import requests
+
+    try:
+        response = requests.get(
+            VALIDATE_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=timeout,
+        )
+    except requests.RequestException as e:
+        return False, f"could not reach OpenRouter ({e})"
+
+    if response.status_code == 200:
+        return True, "valid"
+    if response.status_code in (401, 403):
+        return False, "invalid or unauthorized API key"
+    return False, f"unexpected response (HTTP {response.status_code})"
 
 
 def _load_dotenv_once() -> None:

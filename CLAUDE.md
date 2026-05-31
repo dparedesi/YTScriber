@@ -50,6 +50,12 @@ YTScriber/                      # macOS/Windows: ~/Documents/YTScriber
 
 Linux default data dir: `~/ytscriber`.
 
+### Other Directories
+
+- `scripts/` - Automation scripts for batch operations
+- `prompts/` - AI prompts for transcript analysis
+- `.agent/skills/` - Skill definitions for agents (create a `.claude` symlink if your IDE needs it)
+
 ### channels.yaml Structure
 
 ```yaml
@@ -131,6 +137,12 @@ pytest tests/test_downloader.py  # Specific module
 2. **Download**: `ytscriber download` or `ytscriber download-all` → `transcripts/*.md`
 3. **Summarize**: `ytscriber summarize` → adds `summary` to frontmatter
 4. **Consolidate**: `consolidate-transcripts` → `*-consolidated.md`
+
+Consolidate command (newest first, up to 800K tokens by default):
+
+```bash
+python scripts/consolidate_transcripts.py <channel_name> [--limit TOKENS] [--verbose]
+```
 
 ## Common Tasks
 

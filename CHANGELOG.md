@@ -2,6 +2,21 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.0] - 2026-05-31
+
+### Added
+- **Summarize while downloading**: Pass `--summarize` to `download` or `download-all` to generate AI summaries during the rate-limit delay between downloads. The LLM call runs in a background worker so it overlaps the existing wait window, adding no extra time. Downloads are never blocked or slowed; any summaries still in flight are drained after the last download.
+- **Secure key management with `auth` subcommands**: `ytscriber auth login` stores your OpenRouter key in the OS keychain (macOS Keychain, Windows Credential Manager, libsecret/KWallet). `auth status` shows where the key resolves from (masked), and `auth logout` removes it.
+- **Layered credential resolution**: API key is resolved from `--api-key` flag → `OPENROUTER_API_KEY` env var → `.env` in the current directory → OS keychain. All layers are optional; summarization stays off if no key is found.
+- New `--api-key` flag on `download` and `download-all`.
+
+### Changed
+- `summarize` now resolves the API key through the same layered resolver (keychain support), not just the environment variable.
+
+### Notes
+- Adds `keyring` and `python-dotenv` as dependencies.
+- Summaries reuse the `summarization.max_words` config (default 500), shared with the standalone `summarize` command.
+
 ## [1.4.0] - 2026-05-10
 
 ### Added

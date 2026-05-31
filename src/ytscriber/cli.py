@@ -13,6 +13,13 @@ from typing import Any, Optional
 import yaml
 
 from ytscriber import __version__
+from ytscriber.auth import (
+    delete_stored_key,
+    mask_key,
+    resolve_api_key,
+    resolve_key_source,
+    set_stored_key,
+)
 from ytscriber.batch import download_all_transcripts, download_from_csv, find_video_csv_files
 from ytscriber.config import (
     default_config,
@@ -100,6 +107,36 @@ def _resolve_folder_paths(folder: str) -> tuple[Path, Path]:
     data_dir = get_data_dir()
     folder_dir = data_dir / folder
     return folder_dir / "videos.csv", folder_dir / "transcripts"
+
+
+def _resolve_summarize_options(
+    args: argparse.Namespace, config: dict[str, Any]
+) -> dict[str, Any]:
+    """Resolve summarize-during-download options.
+
+    Summarization is opt-in via ``--summarize`` and never mandatory: if no
+    API key can be resolved we warn and continue downloading without summaries.
+    """
+    if not getattr(args, "summarize", False):
+        return {"summarize": False}
+
+    api_key = resolve_api_key(getattr(args, "api_key", None))
+    if not api_key:
+        logger.warning(
+            "--summarize requested but no OpenRouter API key found; "
+            "continuing with downloads only."
+        )
+        logger.warning("Set one up with: ytscriber auth login")
+        return {"summarize": False}
+
+    summarization = config.get("summarization", {})
+    return {
+        "summarize": True,
+        "api_key": api_key,
+        "summarize_model": summarization.get("model", SUMMARIZE_DEFAULT_MODEL),
+        "summarize_max_words": summarization.get("max_words", SUMMARIZE_DEFAULT_MAX_WORDS),
+    }
+
 
 
 def _ensure_csv_file(csv_path: Path) -> None:
@@ -258,12 +295,14 @@ def handle_download(args: argparse.Namespace) -> int:
 
     if args.csv:
         _confirm_low_delay(delay)
+        summarize_opts = _resolve_summarize_options(args, config)
         try:
             progress = download_from_csv(
                 csv_path=Path(args.csv),
                 output_dir=output_dir,
                 languages=languages,
                 delay=delay,
+                **summarize_opts,
             )
         except IPBlockedError:
             logger.error("IP blocked by YouTube. Stopping.")
@@ -397,11 +436,11 @@ def handle_summarize(args: argparse.Namespace) -> int:
         logger.error("Provide a folder or use --all.")
         return 1
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = resolve_api_key()
     if not api_key:
-        logger.error("Error: OPENROUTER_API_KEY not set.")
-        logger.error("Get a free key at: https://openrouter.ai/keys")
-        logger.error("Then: export OPENROUTER_API_KEY=sk-or-...")
+        logger.error("Error: no OpenRouter API key found.")
+        logger.error("Set one up with: ytscriber auth login")
+        logger.error("Or export OPENROUTER_API_KEY=sk-or-... (free key: https://openrouter.ai/keys)")
         return 1
 
     config = load_config()
@@ -506,11 +545,13 @@ def handle_download_all(args: argparse.Namespace) -> int:
 
     _confirm_low_delay(delay)
 
+    summarize_opts = _resolve_summarize_options(args, config)
     try:
         progress = download_all_transcripts(
             data_dir=get_data_dir(),
             delay=delay,
             languages=languages,
+            **summarize_opts,
         )
     except FileNotFoundError as e:
         logger.error(str(e))
@@ -597,6 +638,57 @@ def handle_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_auth(args: argparse.Namespace) -> int:
+    _apply_verbose_logging(getattr(args, "verbose", False))
+
+    action = getattr(args, "auth_command", None)
+
+    if action == "login":
+        existing, source = resolve_key_source()
+        if existing and source != "none":
+            logger.info(f"An API key is already configured (from {source}).")
+        import getpass
+
+        try:
+            api_key = getpass.getpass("Enter your OpenRouter API key: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            logger.error("Aborted.")
+            return 1
+        if not api_key:
+            logger.error("No key entered.")
+            return 1
+        if set_stored_key(api_key):
+            print(f"Saved API key to keychain ({mask_key(api_key)}).")
+            return 0
+        logger.error("Could not save key to the OS keychain.")
+        return 1
+
+    if action == "status":
+        key, source = resolve_key_source()
+        if key:
+            labels = {
+                "flag": "command-line flag",
+                "env": "OPENROUTER_API_KEY environment variable / .env",
+                "keychain": "OS keychain",
+            }
+            print(f"API key found ({mask_key(key)}) via {labels.get(source, source)}.")
+            return 0
+        print("No API key configured.")
+        print("Set one up with: ytscriber auth login")
+        return 1
+
+    if action == "logout":
+        if delete_stored_key():
+            print("Removed API key from keychain.")
+        else:
+            print("No API key was stored in the keychain.")
+        return 0
+
+    logger.error("Unknown auth command. Use: login, status, or logout.")
+    return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ytscriber",
@@ -608,7 +700,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  ytscriber status             Show available folders\n"
             "\n"
             "Environment variables:\n"
-            "  OPENROUTER_API_KEY  Required for the summarize command\n"
+            "  OPENROUTER_API_KEY  API key for summaries (or run: ytscriber auth login)\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -672,6 +764,16 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SECONDS",
         default=_default_from_config(60),
         help="Seconds between requests (default: %(default)s)",
+    )
+    download_parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="Summarize each transcript during the delay window (needs OpenRouter key)",
+    )
+    download_parser.add_argument(
+        "--api-key",
+        metavar="KEY",
+        help="OpenRouter API key (overrides env var and keychain)",
     )
     download_parser.add_argument(
         "--verbose",
@@ -876,6 +978,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Transcript languages to try (default: %(default)s)",
     )
     download_all_parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help="Summarize each transcript during the delay window (needs OpenRouter key)",
+    )
+    download_all_parser.add_argument(
+        "--api-key",
+        metavar="KEY",
+        help="OpenRouter API key (overrides env var and keychain)",
+    )
+    download_all_parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -934,6 +1046,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show detailed output",
     )
     status_parser.set_defaults(func=handle_status)
+
+    auth_parser = subparsers.add_parser(
+        "auth",
+        help="Manage the OpenRouter API key",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  ytscriber auth login     Store your key securely in the OS keychain\n"
+            "  ytscriber auth status    Show where your key is resolved from\n"
+            "  ytscriber auth logout    Remove the stored key\n"
+        ),
+    )
+    auth_sub = auth_parser.add_subparsers(dest="auth_command", required=True)
+    auth_login = auth_sub.add_parser("login", help="Store API key in the OS keychain")
+    auth_login.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    auth_status = auth_sub.add_parser("status", help="Show resolved API key source")
+    auth_status.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    auth_logout = auth_sub.add_parser("logout", help="Remove API key from the keychain")
+    auth_logout.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    auth_parser.set_defaults(func=handle_auth)
 
     return parser
 

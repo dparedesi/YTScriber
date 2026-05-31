@@ -11,6 +11,8 @@ Download YouTube transcripts and manage channel archives with a unified CLI.
 
 - 📹 **Extract videos** from any YouTube channel
 - 📝 **Download transcripts** with metadata (title, author, duration, etc.)
+- 🧠 **Summarize while downloading** — AI summaries run during the delay between downloads, adding no extra time
+- 🔐 **Secure key storage** in the OS keychain via `ytscriber auth login`
 - 📄 **Save as markdown** files with YAML frontmatter for easy processing
 - 🔄 **Track progress** in CSV files to resume interrupted downloads
 - **Cross-platform data directories** via `platformdirs`
@@ -108,6 +110,9 @@ ytscriber download --folder aws-reinvent-2025
 
 # With faster processing (shorter delay)
 ytscriber download --folder pycon-2024 --delay 30
+
+# Download AND summarize each transcript during the delay window (no extra time)
+ytscriber download --folder aws-reinvent-2025 --summarize
 ```
 
 **Options:**
@@ -119,7 +124,11 @@ ytscriber download --folder pycon-2024 --delay 30
 | `--output-dir` | Directory for transcript files | outputs |
 | `--delay` | Seconds between requests | 60 |
 | `--languages, -l` | Language codes to try | en en-US en-GB |
+| `--summarize` | Summarize each transcript during the delay window (needs API key) | False |
+| `--api-key` | OpenRouter API key (overrides env var and keychain) | - |
 | `--verbose, -v` | Enable verbose output | False |
+
+> **Tip:** `--summarize` reuses the 60s rate-limit delay to run the AI summary in the background, so summaries come for free without slowing downloads. It also works on `download-all`. Requires an OpenRouter key (see [AI Summarization Setup](#ai-summarization-setup)).
 
 **Single video mode:**
 
@@ -143,6 +152,9 @@ ytscriber sync-all
 
 ```bash
 ytscriber download-all
+
+# Also generate summaries during the delay window
+ytscriber download-all --summarize
 ```
 
 ### View or edit config
@@ -188,21 +200,36 @@ Files are named with the publish date for easy sorting: `2025-05-12-i_cskqmWA3U.
 
 To use the AI summarization features, you need an API key from [OpenRouter](https://openrouter.ai/).
 
-1.  **Get an API Key**: Sign up at OpenRouter and create a key.
-2.  **Configure Environment**:
-    Create a `.env` file in the project root:
-    ```bash
-    cp .env.example .env
-    ```
-    Add your key:
-    ```bash
-    OPENROUTER_API_KEY=sk-or-your-key-here
-    ```
-3.  **Recommended Model**:
-    By default, the tool uses `xiaomi/mimo-v2-flash:free`, which is free and fast. You can change this using the `--model` flag.
-    You can also set defaults with `ytscriber config --set summarization.model=...`.
+**1. Get an API Key** — Sign up at OpenRouter and create a key.
+
+**2. Provide the key** — YTScriber resolves it from the first available source:
+
+1. `--api-key` flag (one-off / CI)
+2. `OPENROUTER_API_KEY` environment variable
+3. A `.env` file in the current directory
+4. The OS keychain (recommended for everyday use)
+
+The recommended, most secure option is to store it in your OS keychain:
+
+```bash
+ytscriber auth login     # prompts for the key (hidden input), stores it securely
+ytscriber auth status    # shows where the key is resolved from (masked)
+ytscriber auth logout    # removes the stored key
+```
+
+Alternatively, use an environment variable or a `.env` file:
+
+```bash
+export OPENROUTER_API_KEY=sk-or-your-key-here
+# or create a .env file containing:
+# OPENROUTER_API_KEY=sk-or-your-key-here
+```
+
+**3. Recommended Model** — By default, the tool uses `xiaomi/mimo-v2-flash:free`, which is free and fast. Change it with the `--model` flag or set a default with `ytscriber config --set summarization.model=...`.
 
 ### Summarize transcripts
+
+You can summarize during download (`--summarize`, see above) or run summarization separately on already-downloaded transcripts:
 
 ```bash
 ytscriber summarize <folder_name> [options]

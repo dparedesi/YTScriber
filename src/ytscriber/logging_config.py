@@ -10,6 +10,24 @@ SIMPLE_FORMAT = "%(levelname)s: %(message)s"
 VERBOSE_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
 
 
+class _TTYAwareStreamHandler(logging.StreamHandler):
+    """StreamHandler that clears any in-progress countdown/spinner before logging.
+
+    On a TTY, emits ``\\r\\033[K`` (carriage-return + erase-to-end-of-line)
+    so that log messages never append to an active countdown or spinner frame.
+    No-op on non-interactive streams (pipes, files).
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            if self.stream.isatty():
+                self.stream.write("\r\033[K")
+                self.stream.flush()
+        except Exception:
+            pass
+        super().emit(record)
+
+
 def setup_logging(
     level: int = logging.INFO,
     format_string: Optional[str] = None,
@@ -45,7 +63,7 @@ def setup_logging(
     formatter = logging.Formatter(fmt)
 
     # Console handler
-    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler = _TTYAwareStreamHandler(sys.stderr)
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)

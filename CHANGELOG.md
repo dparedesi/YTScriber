@@ -2,6 +2,11 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.6] - 2026-05-31
+
+### Fixed
+- **Summary log messages no longer merge with the countdown line**: log handler now clears any active countdown/spinner before writing, so `✓ Summarized:` messages appear on their own line.
+
 ## [1.5.5] - 2026-05-31
 
 ### Changed

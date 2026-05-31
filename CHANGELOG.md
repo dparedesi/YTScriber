@@ -2,6 +2,11 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.2] - 2026-05-31
+
+### Changed
+- `ytscriber auth login` now also prompts for the summarization model and validates it with a real (1-token) test request, so an unavailable model is caught at login instead of failing mid-download. The chosen model is saved to config.
+
 ## [1.5.1] - 2026-05-31
 
 ### Added

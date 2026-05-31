@@ -28,8 +28,40 @@ KEYRING_USERNAME = "openrouter"
 # Lightweight endpoint that returns key info (rate limits, usage). Returns 200
 # for a valid key and 401 for an invalid one, without needing a model.
 VALIDATE_URL = "https://openrouter.ai/api/v1/key"
+CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 _dotenv_loaded = False
+
+
+def validate_model(api_key: str, model: str, timeout: float = 20.0) -> tuple[bool, str]:
+    """Check whether ``model`` is usable with ``api_key``.
+
+    Sends a minimal chat completion so a missing/unavailable model surfaces as a
+    404 here instead of mid-download. Returns a ``(is_valid, message)`` tuple.
+    """
+    import requests
+
+    try:
+        response = requests.post(
+            CHAT_URL,
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1,
+            },
+            timeout=timeout,
+        )
+    except requests.RequestException as e:
+        return False, f"could not reach OpenRouter ({e})"
+
+    if response.status_code == 200:
+        return True, "valid"
+    if response.status_code == 404:
+        return False, f"model '{model}' not found or not available to your key"
+    if response.status_code in (401, 403):
+        return False, "invalid or unauthorized API key"
+    return False, f"unexpected response (HTTP {response.status_code})"
 
 
 def validate_api_key(api_key: str, timeout: float = 10.0) -> tuple[bool, str]:

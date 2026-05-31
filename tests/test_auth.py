@@ -76,3 +76,24 @@ def test_validate_api_key_network_error(monkeypatch):
     ok, msg = auth.validate_api_key("any-key")
     assert ok is False
     assert "could not reach" in msg
+
+
+def test_validate_model_valid(monkeypatch):
+    monkeypatch.setattr("requests.post", lambda *a, **k: _FakeResponse(200))
+    ok, msg = auth.validate_model("good-key", "vendor/model")
+    assert ok is True
+    assert msg == "valid"
+
+
+def test_validate_model_not_found(monkeypatch):
+    monkeypatch.setattr("requests.post", lambda *a, **k: _FakeResponse(404))
+    ok, msg = auth.validate_model("good-key", "vendor/missing")
+    assert ok is False
+    assert "not found" in msg
+
+
+def test_validate_model_unauthorized(monkeypatch):
+    monkeypatch.setattr("requests.post", lambda *a, **k: _FakeResponse(401))
+    ok, msg = auth.validate_model("bad-key", "vendor/model")
+    assert ok is False
+    assert "unauthorized" in msg

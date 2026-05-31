@@ -212,10 +212,14 @@ To use the AI summarization features, you need an API key from [OpenRouter](http
 The recommended, most secure option is to store it in your OS keychain:
 
 ```bash
-ytscriber auth login     # prompts for the key (hidden input), stores it securely
+ytscriber auth login     # prompts for key + model, validates both, stores securely
 ytscriber auth status    # shows where the key is resolved from (masked)
 ytscriber auth logout    # removes the stored key
 ```
+
+`auth login` validates your key against OpenRouter and runs a tiny test request
+against your chosen model, so a wrong key or an unavailable model is caught
+immediately rather than failing mid-download.
 
 Alternatively, use an environment variable or a `.env` file:
 

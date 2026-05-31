@@ -222,12 +222,15 @@ class TranscriptDownloader:
             # Write YAML frontmatter
             f.write("---\n")
             f.write(f"video_id: {metadata.video_id}\n")
-            f.write(f"video_url: {metadata.url}\n")
+            url = escape_yaml_string(metadata.url)
+            f.write(f'video_url: "{url}"\n')
 
             if metadata.title:
-                f.write(f"title: {metadata.title}\n")
+                title = escape_yaml_string(metadata.title)
+                f.write(f'title: "{title}"\n')
             if metadata.author:
-                f.write(f"author: {metadata.author}\n")
+                author = escape_yaml_string(metadata.author)
+                f.write(f'author: "{author}"\n')
             if metadata.published_date:
                 f.write(f"published_date: {metadata.published_date}\n")
             if metadata.duration_minutes:
@@ -238,7 +241,8 @@ class TranscriptDownloader:
                 desc = escape_yaml_string(metadata.description)
                 f.write(f'description: "{desc}"\n')
             if metadata.keywords:
-                f.write(f"keywords: {metadata.keywords}\n")
+                kw = escape_yaml_string(metadata.keywords)
+                f.write(f'keywords: "{kw}"\n')
 
             # Transcript metadata
             if transcript_meta.is_generated is not None:

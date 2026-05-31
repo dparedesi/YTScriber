@@ -2,6 +2,14 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.6.0] - 2026-05-31
+
+### Added
+- **Barrier countdown**: the delay between downloads now waits for the LLM summary to finish before proceeding. When the rate limit is satisfied but the summary is still running, the display shows `⏳ Rate-limit done, summary still running (Xs)...`. This prevents summary queue build-up when the LLM is slow or congested. Timeout cap: 5 minutes.
+
+### Fixed
+- **Frontmatter YAML corruption**: string values like `title` and `video_url` are now properly quoted in YAML frontmatter. Titles containing `: ` (e.g., "Engineering voice agents: Latency, quality, and scale") no longer break YAML parsing, which previously caused the summarizer to prepend a duplicate frontmatter block instead of merging the summary into the existing one.
+
 ## [1.5.6] - 2026-05-31
 
 ### Fixed

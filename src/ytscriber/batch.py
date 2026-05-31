@@ -18,7 +18,7 @@ from ytscriber.downloader import TranscriptDownloader
 from ytscriber.exceptions import CSVError, IPBlockedError, InvalidURLError
 from ytscriber.logging_config import get_logger
 from ytscriber.models import BatchProgress
-from ytscriber.progress import Spinner, countdown_sleep
+from ytscriber.progress import Spinner, countdown_with_barrier
 from ytscriber.summarizer import (
     DEFAULT_MODEL as SUMMARIZE_DEFAULT_MODEL,
     DEFAULT_MAX_WORDS as SUMMARIZE_DEFAULT_MAX_WORDS,
@@ -195,15 +195,18 @@ def download_from_csv(
 
                 save_csv()
 
-                # Rate-limit delay AFTER download + summary kickoff so the LLM
-                # call overlaps the wait. Skip on the very last video.
+                # Rate-limit delay AFTER download + summary kickoff.
+                # Wait for BOTH the rate limit and the summary to finish
+                # so summaries never queue up behind downloads.
+                # Skip on the very last video (no next download).
                 if i < len(rows) and delay > 0:
                     msg = (
                         "⏳ Summarizing + rate-limit wait, next in"
                         if summarize_enabled
                         else "Rate-limit wait, next download in"
                     )
-                    countdown_sleep(delay, msg)
+                    latest_future = futures[-1] if futures else None
+                    countdown_with_barrier(delay, msg, future=latest_future)
 
             except IPBlockedError:
                 logger.error("IP blocked by YouTube. Saving progress and stopping.")

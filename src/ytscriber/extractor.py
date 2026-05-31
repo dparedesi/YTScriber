@@ -155,6 +155,16 @@ class ChannelExtractor:
         if description and len(description) > 500:
             description = description[:500] + "..."
 
+        # Extract upload date (yt-dlp returns YYYYMMDD format)
+        published_date = None
+        upload_date = entry.get("upload_date")
+        if upload_date:
+            try:
+                raw = str(upload_date)
+                published_date = f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}"
+            except (ValueError, IndexError):
+                pass
+
         return VideoMetadata(
             video_id=video_id,
             url=url,
@@ -163,6 +173,7 @@ class ChannelExtractor:
             duration_minutes=duration_minutes,
             view_count=view_count,
             description=description,
+            published_date=published_date,
         )
 
     def _extract_with_pytube(

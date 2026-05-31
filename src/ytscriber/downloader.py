@@ -67,6 +67,7 @@ class TranscriptDownloader:
         video_id: str,
         video_url: Optional[str] = None,
         output_file: Optional[str] = None,
+        fallback_date: Optional[str] = None,
     ) -> TranscriptResult:
         """
         Download transcript for a single video.
@@ -75,6 +76,8 @@ class TranscriptDownloader:
             video_id: YouTube video ID
             video_url: Original YouTube URL (for metadata)
             output_file: Optional custom output path
+            fallback_date: Date string (YYYY-MM-DD) from CSV to use if
+                metadata fetch fails
 
         Returns:
             TranscriptResult with download status and content
@@ -113,8 +116,10 @@ class TranscriptDownloader:
                 output_path = Path(output_file)
             else:
                 # Use date-prefixed filename: YYYY-MM-DD-{video_id}.md
-                if metadata.published_date:
-                    filename = f"{metadata.published_date}-{video_id}.md"
+                # Fallback chain: metadata date → CSV date → no prefix
+                date_prefix = metadata.published_date or fallback_date
+                if date_prefix:
+                    filename = f"{date_prefix}-{video_id}.md"
                 else:
                     filename = f"{video_id}.md"
                 output_path = self.output_dir / filename

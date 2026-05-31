@@ -35,7 +35,7 @@ def test_download_from_csv(monkeypatch, tmp_path):
             self.delay = delay
             self.output_dir = output_dir
 
-        def download(self, video_id, video_url=None, output_file=None):
+        def download(self, video_id, video_url=None, output_file=None, fallback_date=None):
             metadata = VideoMetadata(
                 video_id=video_id,
                 url=video_url or f"https://www.youtube.com/watch?v={video_id}",
@@ -79,7 +79,7 @@ def test_download_from_csv_with_summarize(monkeypatch, tmp_path):
         def __init__(self, languages=None, delay=0.0, output_dir=None):
             self.output_dir = output_dir
 
-        def download(self, video_id, video_url=None, output_file=None):
+        def download(self, video_id, video_url=None, output_file=None, fallback_date=None):
             from pathlib import Path
 
             out = Path(self.output_dir) / f"2025-01-01-{video_id}.md"
@@ -149,7 +149,7 @@ def test_download_from_csv_summarize_disabled_without_key(monkeypatch, tmp_path)
         def __init__(self, languages=None, delay=0.0, output_dir=None):
             self.output_dir = output_dir
 
-        def download(self, video_id, video_url=None, output_file=None):
+        def download(self, video_id, video_url=None, output_file=None, fallback_date=None):
             return TranscriptResult(
                 video_id=video_id,
                 status=DownloadStatus.SUCCESS,

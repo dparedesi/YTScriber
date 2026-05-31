@@ -140,6 +140,8 @@ def _extract_from_initial_data(data: dict, metadata: dict) -> None:
 
 
 def fetch_video_metadata(video_id: str, video_url: Optional[str] = None) -> VideoMetadata:
+    # One-time warning flag for metadata fetch failures
+    fetch_video_metadata._warned = getattr(fetch_video_metadata, "_warned", False)
     """
     Fetch metadata for a YouTube video.
 
@@ -173,6 +175,12 @@ def fetch_video_metadata(video_id: str, video_url: Optional[str] = None) -> Vide
 
         except Exception as e:
             logger.debug(f"Failed to fetch metadata for {video_id}: {e}")
+            if not fetch_video_metadata._warned:
+                logger.warning(
+                    "Metadata fetch failed (date prefixes may be missing). "
+                    f"Cause: {type(e).__name__}: {e}"
+                )
+                fetch_video_metadata._warned = True
 
     return VideoMetadata(
         video_id=video_id,

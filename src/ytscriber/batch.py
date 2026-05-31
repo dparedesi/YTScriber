@@ -163,6 +163,7 @@ def download_from_csv(
                 result = downloader.download(
                     video_id=video_id,
                     video_url=url,
+                    fallback_date=row.get("published_date"),
                 )
 
                 progress.processed += 1

@@ -8,9 +8,13 @@ from typing import Any, Optional
 
 import yaml
 
+from ytscriber.logging_config import get_logger
 from ytscriber.paths import get_config_dir
+from ytscriber.providers import DEFAULT_PROVIDER, PROVIDER_ZAI, VALID_PROVIDERS
 
-CONFIG_VERSION = 1
+logger = get_logger("config")
+
+CONFIG_VERSION = 2
 DEFAULT_CONFIG: dict[str, Any] = {
     "version": CONFIG_VERSION,
     "defaults": {
@@ -18,7 +22,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "languages": ["en", "en-US", "en-GB"],
     },
     "summarization": {
-        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "provider": DEFAULT_PROVIDER,
+        "model": "GLM-5.1",
         "max_words": 500,
     },
 }
@@ -59,9 +64,42 @@ def normalize_config(config: Optional[dict[str, Any]]) -> dict[str, Any]:
     """Merge defaults into config and ensure version is current."""
     merged = default_config()
     if config:
+        # Migrate v1 configs that lack a provider key
+        _migrate_provider(config)
+        # Validate provider value
+        _validate_provider(config)
         _merge_config(merged, config)
     merged["version"] = CONFIG_VERSION
     return merged
+
+
+def _migrate_provider(config: dict[str, Any]) -> None:
+    """Add provider key to v1 configs by inferring from model name."""
+    summ = config.get("summarization")
+    if not isinstance(summ, dict):
+        return
+    if "provider" in summ:
+        return
+    model = summ.get("model", "")
+    # OpenRouter models use "vendor/model" format (e.g. "nvidia/nemotron-...")
+    if "/" in str(model):
+        summ["provider"] = "openrouter"
+    else:
+        summ["provider"] = PROVIDER_ZAI
+
+
+def _validate_provider(config: dict[str, Any]) -> None:
+    """Warn and fix unknown provider values."""
+    summ = config.get("summarization")
+    if not isinstance(summ, dict):
+        return
+    provider = summ.get("provider")
+    if provider and provider not in VALID_PROVIDERS:
+        logger.warning(
+            f"Unknown provider '{provider}' in config, "
+            f"falling back to {DEFAULT_PROVIDER}"
+        )
+        summ["provider"] = DEFAULT_PROVIDER
 
 
 def load_config() -> dict[str, Any]:

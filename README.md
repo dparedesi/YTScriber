@@ -198,38 +198,38 @@ Files are named with the publish date for easy sorting: `2025-05-12-i_cskqmWA3U.
 
 ### AI Summarization Setup
 
-To use the AI summarization features, you need an API key from [OpenRouter](https://openrouter.ai/).
+YTScriber supports two summarization providers:
 
-**1. Get an API Key** — Sign up at OpenRouter and create a key.
+| Provider | Default Model | API Key |
+|----------|--------------|---------|
+| **Z.AI** (default) | `GLM-5.1` | Get one at [z.ai](https://z.ai) |
+| OpenRouter | `nvidia/nemotron-3-super-120b-a12b:free` | Get one at [openrouter.ai](https://openrouter.ai/keys) |
 
-**2. Provide the key** — YTScriber resolves it from the first available source:
+**1. Get an API Key** — Sign up at your chosen provider.
 
-1. `--api-key` flag (one-off / CI)
-2. `OPENROUTER_API_KEY` environment variable
-3. A `.env` file in the current directory
-4. The OS keychain (recommended for everyday use)
-
-The recommended, most secure option is to store it in your OS keychain:
+**2. Configure** — The recommended way is `ytscriber auth login`:
 
 ```bash
-ytscriber auth login     # prompts for key + model, validates both, stores securely
-ytscriber auth status    # shows where the key is resolved from (masked)
+ytscriber auth login     # prompts for provider, key + model, validates both, stores securely
+ytscriber auth status    # shows active provider and where the key is resolved from
 ytscriber auth logout    # removes the stored key
 ```
 
-`auth login` validates your key against OpenRouter and runs a tiny test request
-against your chosen model, so a wrong key or an unavailable model is caught
-immediately rather than failing mid-download.
+`auth login` validates your key against the chosen provider and runs a test request, so a wrong key or unavailable model is caught immediately.
 
 Alternatively, use an environment variable or a `.env` file:
 
 ```bash
-export OPENROUTER_API_KEY=sk-or-your-key-here
-# or create a .env file containing:
-# OPENROUTER_API_KEY=sk-or-your-key-here
+export ZAI_API_KEY=your-key-here           # for Z.AI (default provider)
+export OPENROUTER_API_KEY=sk-or-...        # for OpenRouter
 ```
 
-**3. Recommended Model** — By default, the tool uses `nvidia/nemotron-3-super-120b-a12b:free`, which is free and high-quality. Change it with the `--model` flag or set a default with `ytscriber config --set summarization.model=...`.
+**3. Switch providers** — Change the active provider anytime:
+
+```bash
+ytscriber auth login                       # pick a different provider at login
+ytscriber config --set summarization.provider=openrouter  # or set directly
+```
 
 ### Summarize transcripts
 

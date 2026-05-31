@@ -182,13 +182,13 @@ class TestProcessTranscript:
     def test_dry_run(self, sample_transcript: Path):
         """Test dry run mode doesn't modify file."""
         original_content = sample_transcript.read_text()
-        
+
         result = process_transcript(
             file_path=sample_transcript,
             api_key="test_key",
             dry_run=True,
         )
-        
+
         assert result.success is True
         assert "dry-run" in result.error_message
         assert sample_transcript.read_text() == original_content
@@ -199,53 +199,76 @@ class TestProcessTranscript:
             file_path=sample_transcript_with_summary,
             api_key="test_key",
         )
-        
+
         assert result.success is True
         assert "skipped" in result.error_message
 
-    @patch("ytscriber.summarizer.requests.post")
-    def test_successful_summary(
+    @patch("ytscriber.auth.requests.post")
+    def test_successful_summary_zai(
+        self,
+        mock_post: MagicMock,
+        sample_transcript: Path,
+        mock_zai_response: dict,
+    ):
+        """Test successful summarization with Z.AI provider."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_zai_response
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        result = process_transcript(
+            file_path=sample_transcript,
+            api_key="test_key",
+            delay=0,
+        )
+
+        assert result.success is True
+        assert result.summary is not None
+        assert has_summary(sample_transcript) is True
+
+    @patch("ytscriber.auth.requests.post")
+    def test_successful_summary_openrouter(
         self,
         mock_post: MagicMock,
         sample_transcript: Path,
         mock_openrouter_response: dict,
     ):
-        """Test successful summarization with mocked API."""
+        """Test successful summarization with OpenRouter provider."""
         mock_response = MagicMock()
         mock_response.json.return_value = mock_openrouter_response
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
-        
+
         result = process_transcript(
             file_path=sample_transcript,
             api_key="test_key",
-            delay=0,  # No delay for tests
+            delay=0,
+            provider="openrouter",
         )
-        
+
         assert result.success is True
         assert result.summary is not None
-        assert has_summary(sample_transcript) is True
 
-    @patch("ytscriber.summarizer.requests.post")
+    @patch("ytscriber.auth.requests.post")
     def test_force_resummary(
         self,
         mock_post: MagicMock,
         sample_transcript_with_summary: Path,
-        mock_openrouter_response: dict,
+        mock_zai_response: dict,
     ):
         """Test force flag re-summarizes existing summaries."""
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_openrouter_response
+        mock_response.json.return_value = mock_zai_response
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
-        
+
         result = process_transcript(
             file_path=sample_transcript_with_summary,
             api_key="test_key",
             force=True,
             delay=0,
         )
-        
+
         assert result.success is True
         assert mock_post.called
 
@@ -258,12 +281,12 @@ title: Empty Video
 ---
 
 """)
-        
+
         result = process_transcript(
             file_path=empty_file,
             api_key="test_key",
         )
-        
+
         assert result.success is False
         assert "empty" in result.error_message
 
@@ -271,75 +294,75 @@ title: Empty Video
 class TestIntegration:
     """Integration tests for summarizer."""
 
-    @patch("ytscriber.summarizer.requests.post")
+    @patch("ytscriber.auth.requests.post")
     def test_process_folder(
         self,
         mock_post: MagicMock,
         sample_folder_structure: Path,
-        mock_openrouter_response: dict,
+        mock_zai_response: dict,
     ):
         """Test processing an entire folder."""
         from ytscriber.summarizer import process_folder
-        
+
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_openrouter_response
+        mock_response.json.return_value = mock_zai_response
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
-        
+
         progress = process_folder(
             folder_path=sample_folder_structure,
             api_key="test_key",
             delay=0,
         )
-        
+
         assert progress.total == 1
         assert progress.success == 1
         assert progress.errors == 0
 
-    @patch("ytscriber.summarizer.requests.post")
+    @patch("ytscriber.auth.requests.post")
     def test_csv_updated_after_summary(
         self,
         mock_post: MagicMock,
         sample_folder_structure: Path,
-        mock_openrouter_response: dict,
+        mock_zai_response: dict,
     ):
         """Test that CSV is updated after successful summary."""
         from ytscriber.summarizer import process_folder
         import csv
-        
+
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_openrouter_response
+        mock_response.json.return_value = mock_zai_response
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
-        
+
         process_folder(
             folder_path=sample_folder_structure,
             api_key="test_key",
             delay=0,
         )
-        
+
         # Check CSV was updated
         csv_path = sample_folder_structure / "videos.csv"
         with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
-        
+
         assert rows[0]["summary_done"] == "success"
 
     def test_idempotency(
         self,
         sample_folder_structure: Path,
-        mock_openrouter_response: dict,
+        mock_zai_response: dict,
     ):
         """Test that re-running skips already processed files."""
         from ytscriber.summarizer import process_folder
-        
-        with patch("ytscriber.summarizer.requests.post") as mock_post:
+
+        with patch("ytscriber.auth.requests.post") as mock_post:
             mock_response = MagicMock()
-            mock_response.json.return_value = mock_openrouter_response
+            mock_response.json.return_value = mock_zai_response
             mock_response.raise_for_status.return_value = None
             mock_post.return_value = mock_response
-            
+
             # First run - should process
             progress1 = process_folder(
                 folder_path=sample_folder_structure,
@@ -347,9 +370,8 @@ class TestIntegration:
                 delay=0,
             )
             assert progress1.success == 1
-            call_count_1 = mock_post.call_count
-        
-        with patch("ytscriber.summarizer.requests.post") as mock_post2:
+
+        with patch("ytscriber.auth.requests.post") as mock_post2:
             # Second run - should skip
             progress2 = process_folder(
                 folder_path=sample_folder_structure,

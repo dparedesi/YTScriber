@@ -19,6 +19,7 @@ from ytscriber.exceptions import CSVError, IPBlockedError, InvalidURLError
 from ytscriber.logging_config import get_logger
 from ytscriber.models import BatchProgress
 from ytscriber.progress import Spinner, countdown_with_barrier
+from ytscriber.providers import DEFAULT_PROVIDER as SUMMARIZE_DEFAULT_PROVIDER
 from ytscriber.summarizer import (
     DEFAULT_MODEL as SUMMARIZE_DEFAULT_MODEL,
     DEFAULT_MAX_WORDS as SUMMARIZE_DEFAULT_MAX_WORDS,
@@ -45,6 +46,7 @@ def download_from_csv(
     api_key: Optional[str] = None,
     summarize_model: str = SUMMARIZE_DEFAULT_MODEL,
     summarize_max_words: int = SUMMARIZE_DEFAULT_MAX_WORDS,
+    summarize_provider: str = SUMMARIZE_DEFAULT_PROVIDER,
 ) -> BatchProgress:
     """Download transcripts for a single CSV file.
 
@@ -105,6 +107,7 @@ def download_from_csv(
                 model=summarize_model,
                 max_words=summarize_max_words,
                 delay=0.0,
+                provider=summarize_provider,
             )
             if res.error_message and "skipped" in res.error_message:
                 return
@@ -239,6 +242,7 @@ def download_all_transcripts(
     api_key: Optional[str] = None,
     summarize_model: str = SUMMARIZE_DEFAULT_MODEL,
     summarize_max_words: int = SUMMARIZE_DEFAULT_MAX_WORDS,
+    summarize_provider: str = SUMMARIZE_DEFAULT_PROVIDER,
 ) -> BatchProgress:
     """Download transcripts for all folders with videos.csv."""
     csv_files = find_video_csv_files(data_dir)

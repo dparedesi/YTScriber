@@ -27,7 +27,9 @@ src/ytscriber/
 ├── batch.py         # download-all implementation
 ├── extractor.py     # ChannelExtractor - uses yt-dlp (primary) or pytube (fallback)
 ├── downloader.py    # TranscriptDownloader - uses youtube-transcript-api
-├── summarizer.py    # AI summarization via OpenRouter API
+├── summarizer.py    # AI summarization via provider APIs (Z.AI or OpenRouter)
+├── providers.py     # Provider registry (endpoints, models, wire formats)
+├── auth.py          # Credential resolution + provider API call helpers
 ├── csv_handler.py   # CSV read/write, progress tracking
 ├── metadata.py      # Video metadata fetching
 ├── models.py        # Dataclasses: VideoMetadata, TranscriptResult, BatchProgress
@@ -106,10 +108,13 @@ summary: |
 ## Environment Variables
 
 ```bash
-OPENROUTER_API_KEY=sk-or-...  # Required only for summarization
+ZAI_API_KEY=...                # Z.AI API key (default provider for summarization)
+OPENROUTER_API_KEY=sk-or-...   # OpenRouter API key (alternative provider)
 ```
 
-Default summarization model: `nvidia/nemotron-3-super-120b-a12b:free`
+Default provider: **Z.AI** with model `GLM-5.1`. Switch with `ytscriber auth login` or `ytscriber config --set summarization.provider=openrouter`.
+
+Provider architecture: `src/ytscriber/providers.py` defines `ProviderInfo` dataclass with endpoint, headers, and default model per provider. `auth.py` has `call_provider_api()` and `extract_response_text()` shared by both validation and summarizer. Wire formats: Z.AI uses Anthropic Messages API, OpenRouter uses OpenAI chat completions.
 
 ## Testing
 

@@ -57,6 +57,11 @@ from ytscriber.summarizer import (
     get_data_folders,
     process_folder,
 )
+from ytscriber.providers import (
+    DEFAULT_PROVIDER,
+    PROVIDERS,
+    VALID_PROVIDERS,
+)
 from ytscriber.sync import sync_all_channels
 from ytscriber.utils import ensure_videos_endpoint, extract_video_id, is_playlist_url
 
@@ -122,21 +127,25 @@ def _resolve_summarize_options(
     if not getattr(args, "summarize", False):
         return {"summarize": False}
 
-    api_key = resolve_api_key(getattr(args, "api_key", None))
+    summarization = config.get("summarization", {})
+    provider = summarization.get("provider", DEFAULT_PROVIDER)
+    pconf = PROVIDERS[provider]
+
+    api_key = resolve_api_key(getattr(args, "api_key", None), provider=provider)
     if not api_key:
         logger.warning(
-            "--summarize requested but no OpenRouter API key found; "
+            f"--summarize requested but no {pconf.display_name} API key found; "
             "continuing with downloads only."
         )
         logger.warning("Set one up with: ytscriber auth login")
         return {"summarize": False}
 
-    summarization = config.get("summarization", {})
     return {
         "summarize": True,
         "api_key": api_key,
-        "summarize_model": summarization.get("model", SUMMARIZE_DEFAULT_MODEL),
+        "summarize_model": summarization.get("model", pconf.default_model),
         "summarize_max_words": summarization.get("max_words", SUMMARIZE_DEFAULT_MAX_WORDS),
+        "summarize_provider": provider,
     }
 
 
@@ -438,15 +447,16 @@ def handle_summarize(args: argparse.Namespace) -> int:
         logger.error("Provide a folder or use --all.")
         return 1
 
-    api_key = resolve_api_key()
-    if not api_key:
-        logger.error("Error: no OpenRouter API key found.")
-        logger.error("Set one up with: ytscriber auth login")
-        logger.error("Or export OPENROUTER_API_KEY=sk-or-... (free key: https://openrouter.ai/keys)")
-        return 1
-
     config = load_config()
     summarization = config.get("summarization", {})
+    provider = summarization.get("provider", DEFAULT_PROVIDER)
+
+    api_key = resolve_api_key(provider=provider)
+    if not api_key:
+        pconf = PROVIDERS[provider]
+        logger.error(f"Error: no {pconf.display_name} API key found.")
+        logger.error("Set one up with: ytscriber auth login")
+        return 1
 
     model = _resolve_config_default(
         args.model,
@@ -487,6 +497,7 @@ def handle_summarize(args: argparse.Namespace) -> int:
             force=args.force,
             dry_run=args.dry_run,
             verbose=args.verbose,
+            provider=provider,
         )
 
         total_progress.total += progress.total
@@ -646,22 +657,45 @@ def handle_auth(args: argparse.Namespace) -> int:
     action = getattr(args, "auth_command", None)
 
     if action == "login":
-        existing, source = resolve_key_source()
-        if existing and source != "none":
-            logger.info(f"An API key is already configured (from {source}).")
         import getpass
 
         config = load_config()
-        current_model = config.get("summarization", {}).get("model", "")
+        summarization = config.get("summarization", {})
+        current_provider = summarization.get("provider", DEFAULT_PROVIDER)
+        current_model = summarization.get("model", "")
 
+        # Show current config
+        pconf = PROVIDERS.get(current_provider)
+        if pconf:
+            print(f"Current provider: {pconf.display_name} (model: {current_model})")
+
+        # Prompt for provider
         try:
-            api_key = getpass.getpass("Enter your OpenRouter API key: ").strip()
+            provider_input = input(
+                f"Provider [{'/'.join(VALID_PROVIDERS)}] (default: {current_provider}): "
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            logger.error("Aborted.")
+            return 1
+        provider = provider_input if provider_input in VALID_PROVIDERS else current_provider
+        pconf = PROVIDERS[provider]
+
+        # Check for existing key
+        existing, source = resolve_key_source(provider=provider)
+        if existing and source != "none":
+            logger.info(f"An API key is already configured for {pconf.display_name} (from {source}).")
+
+        # Prompt for API key
+        try:
+            api_key = getpass.getpass(f"Enter your {pconf.display_name} API key: ").strip()
+            default_model = current_model or pconf.default_model
             model_prompt = (
-                f"Summarization model [{current_model}]: "
-                if current_model
+                f"Summarization model [{default_model}]: "
+                if default_model
                 else "Summarization model: "
             )
-            model = input(model_prompt).strip() or current_model
+            model = input(model_prompt).strip() or default_model
         except (EOFError, KeyboardInterrupt):
             print()
             logger.error("Aborted.")
@@ -673,37 +707,52 @@ def handle_auth(args: argparse.Namespace) -> int:
             logger.error("No model entered.")
             return 1
 
-        print("Validating key with OpenRouter...")
-        is_valid, message = validate_api_key(api_key)
+        # Validate key
+        print(f"Validating key with {pconf.display_name}...")
+        is_valid, message = validate_api_key(api_key, provider=provider)
         if not is_valid:
             logger.error(f"Key not saved: {message}.")
-            logger.error("Double-check your key at https://openrouter.ai/keys")
+            if provider == "openrouter":
+                logger.error("Double-check your key at https://openrouter.ai/keys")
+            else:
+                logger.error("Double-check your key at https://z.ai")
             return 1
 
+        # Validate model
         print(f"Testing model '{model}'...")
-        model_ok, model_msg = validate_model(api_key, model)
+        model_ok, model_msg = validate_model(api_key, model, provider=provider)
         if not model_ok:
             logger.error(f"Nothing saved: {model_msg}.")
-            logger.error("Browse available models at https://openrouter.ai/models")
+            if provider == "openrouter":
+                logger.error("Browse available models at https://openrouter.ai/models")
+            else:
+                logger.error("Check available models in your Z.AI dashboard")
             return 1
 
-        if not set_stored_key(api_key):
+        # Save
+        if not set_stored_key(api_key, provider=provider):
             logger.error("Could not save key to the OS keychain.")
             return 1
+        set_config_value(config, "summarization.provider", provider)
         set_config_value(config, "summarization.model", model)
         save_config(config)
         print(
-            f"Validated and saved API key ({mask_key(api_key)}) "
+            f"Validated and saved {pconf.display_name} API key ({mask_key(api_key)}) "
             f"and model '{model}'."
         )
         return 0
 
     if action == "status":
-        key, source = resolve_key_source()
+        config = load_config()
+        provider = config.get("summarization", {}).get("provider", DEFAULT_PROVIDER)
+        pconf = PROVIDERS.get(provider, PROVIDERS[DEFAULT_PROVIDER])
+        print(f"Provider: {pconf.display_name}")
+
+        key, source = resolve_key_source(provider=provider)
         if key:
             labels = {
                 "flag": "command-line flag",
-                "env": "OPENROUTER_API_KEY environment variable / .env",
+                "env": f"{pconf.env_var} environment variable / .env",
                 "keychain": "OS keychain",
             }
             print(f"API key found ({mask_key(key)}) via {labels.get(source, source)}.")
@@ -713,8 +762,11 @@ def handle_auth(args: argparse.Namespace) -> int:
         return 1
 
     if action == "logout":
-        if delete_stored_key():
-            print("Removed API key from keychain.")
+        config = load_config()
+        provider = config.get("summarization", {}).get("provider", DEFAULT_PROVIDER)
+        pconf = PROVIDERS.get(provider, PROVIDERS[DEFAULT_PROVIDER])
+        if delete_stored_key(provider=provider):
+            print(f"Removed {pconf.display_name} API key from keychain.")
         else:
             print("No API key was stored in the keychain.")
         return 0
@@ -734,7 +786,8 @@ def build_parser() -> argparse.ArgumentParser:
             "  ytscriber status             Show available folders\n"
             "\n"
             "Environment variables:\n"
-            "  OPENROUTER_API_KEY  API key for summaries (or run: ytscriber auth login)\n"
+            "  ZAI_API_KEY          Z.AI API key for summaries (default provider)\n"
+            "  OPENROUTER_API_KEY   OpenRouter API key (alternative provider)\n"
         ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -802,12 +855,12 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser.add_argument(
         "--summarize",
         action="store_true",
-        help="Summarize each transcript during the delay window (needs OpenRouter key)",
+        help="Summarize each transcript during the delay window (needs API key)",
     )
     download_parser.add_argument(
         "--api-key",
         metavar="KEY",
-        help="OpenRouter API key (overrides env var and keychain)",
+        help="API key (overrides env var and keychain)",
     )
     download_parser.add_argument(
         "--verbose",
@@ -936,7 +989,7 @@ def build_parser() -> argparse.ArgumentParser:
     summarize_parser.add_argument(
         "--model",
         default=_default_from_config(SUMMARIZE_DEFAULT_MODEL),
-        help="OpenRouter model (default: %(default)s)",
+        help="Summarization model (default: %(default)s)",
     )
     summarize_parser.add_argument(
         "--max-words",
@@ -1014,12 +1067,12 @@ def build_parser() -> argparse.ArgumentParser:
     download_all_parser.add_argument(
         "--summarize",
         action="store_true",
-        help="Summarize each transcript during the delay window (needs OpenRouter key)",
+        help="Summarize each transcript during the delay window (needs API key)",
     )
     download_all_parser.add_argument(
         "--api-key",
         metavar="KEY",
-        help="OpenRouter API key (overrides env var and keychain)",
+        help="API key (overrides env var and keychain)",
     )
     download_all_parser.add_argument(
         "--verbose",
@@ -1083,7 +1136,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     auth_parser = subparsers.add_parser(
         "auth",
-        help="Manage the OpenRouter API key",
+        help="Manage API keys for summarization providers",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"

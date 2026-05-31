@@ -11,20 +11,21 @@ from typing import Optional
 import requests
 import yaml
 
+from ytscriber.auth import call_provider_api, extract_response_text
 from ytscriber.csv_handler import (
     get_url_from_row,
     read_video_urls,
     update_csv_status,
 )
 from ytscriber.logging_config import get_logger
+from ytscriber.providers import DEFAULT_PROVIDER, PROVIDER_OPENROUTER, PROVIDERS
 
 logger = get_logger("summarizer")
 
 # Default configuration
-DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+DEFAULT_MODEL = PROVIDERS[DEFAULT_PROVIDER].default_model
 DEFAULT_DELAY = 4.0
 DEFAULT_MAX_WORDS = 500
-API_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Prompt template embedded in code for simplicity
 SUMMARIZE_PROMPT_TEMPLATE = """You are an expert content summarizer. Your task is to create a comprehensive, 
@@ -196,21 +197,23 @@ def summarize_transcript(
     api_key: str,
     model: str = DEFAULT_MODEL,
     max_words: int = DEFAULT_MAX_WORDS,
+    provider: str = DEFAULT_PROVIDER,
 ) -> str:
     """
-    Send transcript to OpenRouter and get summary.
-    
+    Send transcript to the configured provider and get summary.
+
     Args:
         content: Transcript text
         title: Video title
         author: Video author/channel
-        api_key: OpenRouter API key
+        api_key: Provider API key
         model: Model identifier
         max_words: Target word count
-    
+        provider: Provider identifier ("zai" or "openrouter")
+
     Returns:
         Summary text
-    
+
     Raises:
         requests.RequestException: On API errors
     """
@@ -222,26 +225,26 @@ def summarize_transcript(
         min_words=max_words - 50,
         max_words_upper=max_words + 50,
     )
-    
-    response = requests.post(
-        API_BASE_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "reasoning": {"effort": "high"},  # Enable deeper thinking
-        },
+
+    # OpenRouter supports the "reasoning" parameter for deeper thinking.
+    extra_body = None
+    if provider == PROVIDER_OPENROUTER:
+        extra_body = {"reasoning": {"effort": "high"}}
+
+    response = call_provider_api(
+        provider,
+        api_key,
+        model,
+        prompt,
+        max_tokens=4096,
         timeout=120.0,
+        extra_body=extra_body,
     )
     response.raise_for_status()
-    
-    data = response.json()
-    content = data["choices"][0]["message"]["content"].strip()
-    # Post-process to ensure single continuous paragraph by replacing newlines/spaces with single space
-    return " ".join(content.split())
+
+    raw_text = extract_response_text(response.json(), provider)
+    # Post-process to single continuous paragraph
+    return " ".join(raw_text.split())
 
 
 def find_row_by_video_id(rows: list[dict], video_id: str) -> Optional[dict]:
@@ -270,19 +273,21 @@ def process_transcript(
     delay: float = DEFAULT_DELAY,
     force: bool = False,
     dry_run: bool = False,
+    provider: str = DEFAULT_PROVIDER,
 ) -> SummarizeResult:
     """
     Process a single transcript file.
-    
+
     Args:
         file_path: Path to transcript file
-        api_key: OpenRouter API key
+        api_key: Provider API key
         model: Model identifier
         max_words: Target word count
         delay: Delay after processing (for rate limiting)
         force: Force re-summarization even if summary exists
         dry_run: If True, don't make changes
-    
+        provider: Provider identifier ("zai" or "openrouter")
+
     Returns:
         SummarizeResult with status
     """
@@ -333,21 +338,22 @@ def process_transcript(
             api_key=api_key,
             model=model,
             max_words=max_words,
+            provider=provider,
         )
-        
+
         # Update file
         update_frontmatter_with_summary(file_path, summary)
-        
+
         # Rate limiting delay
         if delay > 0:
             time.sleep(delay)
-        
+
         return SummarizeResult(
             video_id=video_id,
             success=True,
             summary=summary,
         )
-        
+
     except requests.HTTPError as e:
         if e.response.status_code == 429:
             # Rate limited - wait and retry once
@@ -361,6 +367,7 @@ def process_transcript(
                     api_key=api_key,
                     model=model,
                     max_words=max_words,
+                    provider=provider,
                 )
                 update_frontmatter_with_summary(file_path, summary)
                 return SummarizeResult(video_id=video_id, success=True, summary=summary)
@@ -399,20 +406,22 @@ def process_folder(
     force: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
+    provider: str = DEFAULT_PROVIDER,
 ) -> BatchSummarizeProgress:
     """
     Process all transcripts in a folder.
-    
+
     Args:
         folder_path: Path to channel folder (e.g., data/OpenAI)
-        api_key: OpenRouter API key
+        api_key: Provider API key
         model: Model identifier
         max_words: Target word count
         delay: Delay between requests
         force: Force re-summarization
         dry_run: Preview mode
         verbose: Enable verbose output
-    
+        provider: Provider identifier ("zai" or "openrouter")
+
     Returns:
         BatchSummarizeProgress with results
     """
@@ -461,6 +470,7 @@ def process_folder(
             delay=delay,
             force=force,
             dry_run=dry_run,
+            provider=provider,
         )
         
         progress.processed += 1

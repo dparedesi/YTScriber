@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +26,7 @@ from ytscriber.models import (
     TranscriptResult,
     VideoMetadata,
 )
+from ytscriber.progress import Spinner, countdown_sleep
 from ytscriber.utils import escape_yaml_string, extract_video_id
 
 logger = get_logger("downloader")
@@ -83,7 +83,7 @@ class TranscriptDownloader:
         """
         if apply_delay and self.delay > 0:
             logger.debug(f"Waiting {self.delay}s before request...")
-            time.sleep(self.delay)
+            countdown_sleep(self.delay, "Rate-limit wait, next download in")
 
         url = video_url or f"https://www.youtube.com/watch?v={video_id}"
         logger.info(f"Downloading transcript for: {video_id}")
@@ -96,7 +96,8 @@ class TranscriptDownloader:
             transcript = self._find_best_transcript(transcript_list, video_id)
 
             # Fetch the transcript data
-            transcript_data = transcript.fetch()
+            with Spinner(f"Fetching transcript for {video_id}..."):
+                transcript_data = transcript.fetch()
 
             # Combine text segments
             full_text = " ".join([item.text for item in transcript_data])

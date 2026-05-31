@@ -2,6 +2,11 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.4] - 2026-05-31
+
+### Added
+- **Live progress during waits**: the rate-limit delay between downloads now shows a live countdown, transcript fetches show a spinner, and the end-of-run summary drain shows a "Generating summaries..." spinner. These render only on an interactive terminal and stay silent when output is piped to a log file.
+
 ## [1.5.3] - 2026-05-31
 
 ### Changed

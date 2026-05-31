@@ -18,6 +18,7 @@ from ytscriber.downloader import TranscriptDownloader
 from ytscriber.exceptions import CSVError, IPBlockedError, InvalidURLError
 from ytscriber.logging_config import get_logger
 from ytscriber.models import BatchProgress
+from ytscriber.progress import Spinner
 from ytscriber.summarizer import (
     DEFAULT_MODEL as SUMMARIZE_DEFAULT_MODEL,
     DEFAULT_MAX_WORDS as SUMMARIZE_DEFAULT_MAX_WORDS,
@@ -206,7 +207,10 @@ def download_from_csv(
         if executor is not None:
             if futures:
                 logger.info("Waiting for pending summaries to finish...")
-            executor.shutdown(wait=True)
+                with Spinner("Generating summaries..."):
+                    executor.shutdown(wait=True)
+            else:
+                executor.shutdown(wait=True)
 
     save_csv()
     logger.info(f"Updated CSV file: {csv_path}")

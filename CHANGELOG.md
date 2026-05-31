@@ -2,6 +2,11 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.3] - 2026-05-31
+
+### Changed
+- Default summarization model is now `nvidia/nemotron-3-super-120b-a12b:free` (free and high-quality), replacing `xiaomi/mimo-v2-flash:free`.
+
 ## [1.5.2] - 2026-05-31
 
 ### Changed

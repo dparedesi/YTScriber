@@ -229,7 +229,7 @@ export OPENROUTER_API_KEY=sk-or-your-key-here
 # OPENROUTER_API_KEY=sk-or-your-key-here
 ```
 
-**3. Recommended Model** — By default, the tool uses `xiaomi/mimo-v2-flash:free`, which is free and fast. Change it with the `--model` flag or set a default with `ytscriber config --set summarization.model=...`.
+**3. Recommended Model** — By default, the tool uses `nvidia/nemotron-3-super-120b-a12b:free`, which is free and high-quality. Change it with the `--model` flag or set a default with `ytscriber config --set summarization.model=...`.
 
 ### Summarize transcripts
 
@@ -259,7 +259,7 @@ ytscriber summarize random --dry-run
 | `--all` | Process all folders | False |
 | `--dry-run` | Preview changes without writing | False |
 | `--force` | overwrite existing summaries | False |
-| `--model` | OpenRouter model to use | `xiaomi/mimo-v2-flash:free` |
+| `--model` | OpenRouter model to use | `nvidia/nemotron-3-super-120b-a12b:free` |
 
 ### CSV tracking format
 

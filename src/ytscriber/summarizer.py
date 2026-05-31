@@ -21,7 +21,7 @@ from ytscriber.logging_config import get_logger
 logger = get_logger("summarizer")
 
 # Default configuration
-DEFAULT_MODEL = "xiaomi/mimo-v2-flash:free"
+DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 DEFAULT_DELAY = 4.0
 DEFAULT_MAX_WORDS = 500
 API_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"

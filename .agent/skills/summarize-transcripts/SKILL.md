@@ -126,11 +126,11 @@ ytscriber summarize [FOLDER] [OPTIONS]
 | `--dry-run` | Show what would happen without changes | False |
 | `--force` | Re-summarize files that already have summaries | False |
 | `--delay` | Seconds between API requests (min: 4s) | 4.0 |
-| `--model` | OpenRouter model to use | `xiaomi/mimo-v2-flash:free` |
+| `--model` | OpenRouter model to use | `nvidia/nemotron-3-super-120b-a12b:free` |
 | `--max-words` | Target summary length | 500 |
 
 > [!TIP]
-> The default model `xiaomi/mimo-v2-flash:free` is free and high-quality. No paid account needed, just an OpenRouter API key.
+> The default model `nvidia/nemotron-3-super-120b-a12b:free` is free and high-quality. No paid account needed, just an OpenRouter API key.
 
 ---
 

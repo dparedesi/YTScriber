@@ -109,7 +109,7 @@ summary: |
 OPENROUTER_API_KEY=sk-or-...  # Required only for summarization
 ```
 
-Default summarization model: `xiaomi/mimo-v2-flash:free`
+Default summarization model: `nvidia/nemotron-3-super-120b-a12b:free`
 
 ## Testing
 

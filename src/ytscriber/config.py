@@ -18,7 +18,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "languages": ["en", "en-US", "en-GB"],
     },
     "summarization": {
-        "model": "xiaomi/mimo-v2-flash:free",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
         "max_words": 500,
     },
 }

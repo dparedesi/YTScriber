@@ -430,6 +430,23 @@ for video in videos:
 - Transcript will still download, just without extra metadata
 - Check if video is accessible and not private
 
+### Transcripts saved without date prefix (macOS)
+
+If transcript files are saved as `{video_id}.md` instead of `YYYY-MM-DD-{video_id}.md`, Python on macOS is likely missing SSL root certificates. This causes pytube (used for video metadata) to fail silently.
+
+**Diagnose:**
+```bash
+python -c "from pytube import YouTube; print(YouTube('https://youtube.com/watch?v=dQw4w9WgXcQ').publish_date)"
+```
+
+If you see `SSLCertVerificationError`, run the certificate installer:
+```bash
+"/Applications/Python 3.13/Install Certificates.command"
+```
+Adjust the path for your Python version (`3.12`, `3.14`, etc.).
+
+> **Note:** Homebrew Python and most Linux distributions include certificates by default. This only affects Python installed from [python.org](https://python.org).
+
 ### Script interrupted
 
 - Just run the same command again - it will skip already downloaded videos

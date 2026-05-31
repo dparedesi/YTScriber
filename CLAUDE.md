@@ -171,3 +171,17 @@ ytscriber add "https://www.youtube.com/watch?v=VIDEO_ID" \
 - Video IDs are 11 chars; channel IDs start with "UC" (filtered out)
 - Descriptions truncated to 500 chars in CSV
 - Token counting uses tiktoken for accurate LLM context limits
+
+### macOS SSL certificate error (pytube)
+
+Python installed from python.org on macOS doesn't include root CA certificates. This causes pytube (used for video metadata) to fail with `SSLCertVerificationError`. When this happens, transcript filenames lose their `YYYY-MM-DD-` date prefix and are saved as `{video_id}.md`.
+
+**Symptom**: `INFO: ✓ Saved transcript to: .../transcripts/V-L0INGTEOg.md` (no date prefix)
+
+**Fix**: Run the certificate installer that comes with Python:
+```bash
+"/Applications/Python 3.13/Install Certificates.command"
+```
+Adjust the path for your Python version (`3.12`, `3.14`, etc.).
+
+**Fallback** (v1.7.0+): Even without SSL certs, the downloader uses the CSV row's `published_date` as a fallback for the filename. So the date prefix is preserved as long as the video was extracted with yt-dlp (which provides `upload_date` in channel listings).

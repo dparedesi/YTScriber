@@ -2,6 +2,12 @@
 
 All notable changes to YTScriber will be documented in this file.
 
+## [1.5.5] - 2026-05-31
+
+### Changed
+- **Rate-limit delay now runs after download + summary kickoff**, not before. This means transcripts download immediately, the LLM summary starts right away, and the 60s countdown overlaps the summarization — eliminating the perception of "waiting 60 seconds for nothing."
+- Countdown message now says `⏳ Summarizing + rate-limit wait` when summarizing is active, making it clear two things are happening during the wait.
+
 ## [1.5.4] - 2026-05-31
 
 ### Added

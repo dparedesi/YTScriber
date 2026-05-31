@@ -35,7 +35,7 @@ def test_handle_download_single_video_defaults_collection(monkeypatch, tmp_path)
             self.calls: list[dict[str, str | None]] = []
             created["instance"] = self
 
-        def download(self, video_id, video_url=None, output_file=None, apply_delay=False):
+        def download(self, video_id, video_url=None, output_file=None):
             self.calls.append(
                 {
                     "video_id": video_id,

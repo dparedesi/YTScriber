@@ -5,7 +5,7 @@ Download YouTube transcripts and organize them for analysis, summarization,
 and archival.
 """
 
-__version__ = "1.5.4"
+__version__ = "1.5.5"
 __author__ = "Daniel Paredes"
 
 from ytscriber.downloader import TranscriptDownloader

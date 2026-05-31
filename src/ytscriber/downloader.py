@@ -26,7 +26,7 @@ from ytscriber.models import (
     TranscriptResult,
     VideoMetadata,
 )
-from ytscriber.progress import Spinner, countdown_sleep
+from ytscriber.progress import Spinner
 from ytscriber.utils import escape_yaml_string, extract_video_id
 
 logger = get_logger("downloader")
@@ -67,7 +67,6 @@ class TranscriptDownloader:
         video_id: str,
         video_url: Optional[str] = None,
         output_file: Optional[str] = None,
-        apply_delay: bool = False,
     ) -> TranscriptResult:
         """
         Download transcript for a single video.
@@ -76,15 +75,10 @@ class TranscriptDownloader:
             video_id: YouTube video ID
             video_url: Original YouTube URL (for metadata)
             output_file: Optional custom output path
-            apply_delay: Whether to apply rate limiting delay
 
         Returns:
             TranscriptResult with download status and content
         """
-        if apply_delay and self.delay > 0:
-            logger.debug(f"Waiting {self.delay}s before request...")
-            countdown_sleep(self.delay, "Rate-limit wait, next download in")
-
         url = video_url or f"https://www.youtube.com/watch?v={video_id}"
         logger.info(f"Downloading transcript for: {video_id}")
 
@@ -173,7 +167,6 @@ class TranscriptDownloader:
         self,
         url: str,
         output_file: Optional[str] = None,
-        apply_delay: bool = False,
     ) -> TranscriptResult:
         """
         Download transcript from a YouTube URL.
@@ -181,7 +174,6 @@ class TranscriptDownloader:
         Args:
             url: YouTube video URL
             output_file: Optional custom output path
-            apply_delay: Whether to apply rate limiting delay
 
         Returns:
             TranscriptResult with download status and content
@@ -191,7 +183,6 @@ class TranscriptDownloader:
             video_id=video_id,
             video_url=url,
             output_file=output_file,
-            apply_delay=apply_delay,
         )
 
     def _find_best_transcript(self, transcript_list, video_id: str):
